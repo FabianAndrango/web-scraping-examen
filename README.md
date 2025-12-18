@@ -1,2 +1,2 @@
 3.	¿Qué estrategia realizaría en la creación de su software en base a los patrones encontrados?
-    En base a los patrones de software encontrados para extraer los datos de quienes siguen cada cuenta. 
+    En base a los patrones de software encontrados para extraer los datos de quienes siguen cada cuenta. La estrategia con los datos seria hacer un analisis de estudio de los gustos sobre los deportes que tiene cada seguidor para ello es muy importante recolipar datos de la biografia que seran utiles para concer sus gustos en el deporte.
