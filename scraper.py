@@ -336,6 +336,8 @@ def collect_followers_data(driver, usernames_set, max_profiles=None):
     total = len(usernames_list)
     print(f"Total de perfiles a procesar: {total}\n")
 
+    followers_data_profile = []
+
     for index, username in enumerate(usernames_list, 1):
         print(f"[{index}/{total}] Procesando @{username}...")
 
@@ -347,12 +349,18 @@ def collect_followers_data(driver, usernames_set, max_profiles=None):
             'followers': follower_count
         })
 
-        followers_data_profile = []
-        
-        followers_data_profile.append(username,follower_count, follower_biography['bio'],follower_biography['links'], follower_biography['raw'])
+        followers_data_profile.append({
+            'username': username,
+            'followers': follower_count,
+            'bio': follower_biography.get('bio'),
+            'links': follower_biography.get('links'),
+            'raw': follower_biography.get('raw')
+        })
 
         if index < total:
             human_delay()
+
+
 
     # Estadísticas finales
     successful = sum(1 for item in followers_data if item['followers'] is not None)
