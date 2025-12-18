@@ -73,7 +73,7 @@ def main():
 
 
 
-        excel_file_profile = save_profile_data_excel(followers_data_profile)
+        excel_file_profile = save_profile_data_excel(followers_data_profile, profile)
 
 
         # Análisis de Benford

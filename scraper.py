@@ -240,48 +240,35 @@ def get_bio(driver, username):
             EC.presence_of_element_located((By.TAG_NAME, "header"))
         )
 
-        # Método: meta og:description (suele contener resumen)
-        try:
-            meta = driver.find_element(By.XPATH, "//meta[@property='og:description']")
-            content = meta.get_attribute('content') or ''
-            if content:
-                import re
-                candidate = content.split('•')[0].strip()
-                candidate = re.sub(r'\s*\(@[\w\.]+\)', '', candidate).strip()
-                links = []
-                try:
-                    header = driver.find_element(By.TAG_NAME, 'header')
-                    for a in header.find_elements(By.TAG_NAME, 'a'):
-                        href = a.get_attribute('href')
-                        if href:
-                            links.append(href)
-                except Exception:
-                    pass
-                if candidate:
-                    print(f"  ✅ @{username}: Biografía encontrada (meta)")
-
-                    return {'bio': candidate, 'links': links, 'raw': content}
-        except Exception:
-            pass
-            
-        # Método 2: buscar en el header elementos <span> o <div> con texto
+       
+        # Método 1: extracción robusta desde el header (intenta varios nodos y filtra estadísticas)
         try:
             header = driver.find_element(By.TAG_NAME, 'header')
-            # Buscar spans y divs que parezcan contener la bio
-            candidates = header.find_elements(By.XPATH, ".//span|.//div")
+            candidates = []
+            try:
+                child_elements = header.find_elements(By.XPATH, ".//*")
+                for el in child_elements:
+                    try:
+                        txt = el.text.strip()
+                        if not txt:
+                            continue
+                        low = txt.lower()
+                        if any(k in low for k in ['followers', 'seguidores', 'posts', 'siguiendo', 'following']):
+                            continue
+                        if txt.startswith('@'):
+                            continue
+                        if len(txt) >= 3:
+                            candidates.append((len(txt), txt))
+                    except Exception:
+                        continue
+            except Exception:
+                candidates = []
+
+            # Ordenar por longitud y escoger el candidato más largo (mejor heurística para bio)
             best = ''
-            for el in candidates:
-                try:
-                    txt = el.text.strip()
-                    if not txt:
-                        continue
-                    low = txt.lower()
-                    if any(k in low for k in ['followers', 'seguidores', 'posts', 'siguiendo']):
-                        continue
-                    if len(txt) > len(best):
-                        best = txt
-                except Exception:
-                    continue
+            if candidates:
+                candidates.sort(reverse=True)
+                best = candidates[0][1]
 
             links = []
             try:
@@ -292,24 +279,55 @@ def get_bio(driver, username):
             except Exception:
                 pass
 
-            if best:
+            if best and len(best) > 0:
                 print(f"  ✅ @{username}: Biografía encontrada (header)")
                 return {'bio': best, 'links': links, 'raw': best}
         except Exception:
             pass
 
-        # Método 3: meta name="description"
+        # Método 2: meta tags (og:description o name=description)
         try:
-            meta = driver.find_element(By.XPATH, "//meta[@name='description']")
+            meta = driver.find_element(By.XPATH, "//meta[@name='description' or @property='og:description']")
             content = meta.get_attribute('content') or ''
             if content:
-                print(f"  ✅ @{username}: Biografía encontrada (meta name=description)")
+                print(f"  ✅ @{username}: Biografía encontrada (meta)")
                 return {'bio': content.strip(), 'links': [], 'raw': content}
         except Exception:
             pass
 
+        # Método 3: buscar biografía en JSON embebido en el HTML (clave "biography")
+        try:
+            import re, html
+            page_source = driver.page_source
+            m = re.search(r'"biography":"(.*?)"', page_source)
+            if m:
+                raw = m.group(1)
+                try:
+                    # Decodificar secuencias unicode y entidades HTML
+                    raw = raw.encode('utf-8').decode('unicode_escape')
+                except Exception:
+                    pass
+                raw = html.unescape(raw)
+                if raw:
+                    print(f"  ✅ @{username}: Biografía encontrada (JSON embebido)")
+                    return {'bio': raw, 'links': [], 'raw': raw}
+        except Exception:
+            pass
+
+        # Fallback: concatenar texto del header filtrado
+        try:
+            header_text = header.text or ''
+            lines = [l.strip() for l in header_text.splitlines() if l.strip()]
+            filtered = [l for l in lines if not any(k in l.lower() for k in ['followers', 'seguidores', 'posts', 'siguiendo', 'following'])]
+            if filtered:
+                fallback = ' '.join(filtered)
+                print(f"  ⚠️ @{username}: Usando fallback de header")
+                return {'bio': fallback, 'links': links, 'raw': header_text}
+        except Exception:
+            pass
+
         print(f"  ⚠️ @{username}: No se encontró biografía")
-        return {'bio': None, 'links': [], 'raw': None}
+        return {'bio': None, 'links': links if 'links' in locals() else [], 'raw': None}
 
     except TimeoutException:
         print(f"  ❌ @{username}: Timeout")
